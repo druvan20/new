@@ -1,0 +1,291 @@
+5. Create a Library with 4 collections (books, members, borrowRecords, authors) and
+validation rules insert least 10 documents. In this exercise create indexes examples
+(single-field, compound, text, unique) and show performance test with explain ().
+a. Create & Use Database and Collections with Validation
+b. Insert Sample Documents (10 each)
+c. Index Creation
+i. Single-field index
+ii. Compound index
+iii. Text index
+iv. Unique index
+d. Performance Test with explain()
+i. Without Index
+ii. With Index
+e. Library Database — Additional Indexed Queries
+i. Find books by a specific author quickly
+ii. Search books by title keyword (text index)
+iii. Find overdue books efficiently
+iv. Get borrowing history of a specific member, sorted by date
+// ============ 0. Setup: Switch DB and clean (safe for demo) ============
+use("library_db");
+// WARNING: For an existing DB, drop lines below carefully in a lab/demo only.
+db.books.drop();
+db.members.drop();
+db.authors.drop();
+db.borrowRecords.drop();
+// ============ 1. Create collections with validation ============
+// books collection: book_id unique string, title string, authors array of author_id refs, isbn,
+publishedDate (date), pages (int), description
+db.createCollection("books", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["book_id","title","authors","isbn","publishedDate","pages"],
+ properties: {
+ book_id: { bsonType: "string" },
+ title: { bsonType: "string" },
+ authors: {
+ bsonType: "array",
+ items: { bsonType: "string" }
+ },
+ isbn: { bsonType: "string" },
+ publishedDate: { bsonType: "date" },
+ pages: { bsonType: ["int","double","decimal"], minimum: 1 },
+ description: { bsonType: "string" },
+ categories: {
+ bsonType: "array",
+ items: { bsonType: "string" }
+ }
+ }
+ }
+ }
+});
+// members collection: member_id unique string, name, email, joinedDate
+db.createCollection("members", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["member_id","name","email","joinedDate"],
+ properties: {
+ member_id: { bsonType: "string" },
+ name: { bsonType: "string" },
+ email: { bsonType: "string" },
+ joinedDate: { bsonType: "date" }
+ }
+ }
+ }
+});
+// authors collection: author_id unique string, name, bio
+db.createCollection("authors", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["author_id","name"],
+ properties: {
+ author_id: { bsonType: "string" },
+ name: { bsonType: "string" },
+ bio: { bsonType: "string" }
+ }
+ }
+ }
+});
+// borrowRecords collection: record_id unique, book_id, member_id, borrowDate, dueDate, returned
+(bool), returnDate(optional)
+db.createCollection("borrowRecords", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["record_id","book_id","member_id","borrowDate","dueDate","returned"],
+ properties: {
+ record_id: { bsonType: "string" },
+ book_id: { bsonType: "string" },
+ member_id: { bsonType: "string" },
+ borrowDate: { bsonType: "date" },
+ dueDate: { bsonType: "date" },
+ returned: { bsonType: "bool" },
+ returnDate: { bsonType: "date" }
+ }
+ }
+ }
+});
+// ============ 2. Insert sample documents (10 each) ============
+// -- authors (10)
+db.authors.insertMany([
+ { author_id: "A001", name: "R. K. Narayan", bio: "Indian writer." },
+ { author_id: "A002", name: "Arundhati Roy", bio: "Author & activist." },
+ { author_id: "A003", name: "Ruskin Bond", bio: "Short story author." },
+ { author_id: "A004", name: "Amrita Pritam", bio: "Poet & novelist." },
+ { author_id: "A005", name: "Chetan Bhagat", bio: "Contemporary novelist." },
+ { author_id: "A006", name: "A. S. Byatt", bio: "English novelist." },
+ { author_id: "A007", name: "J. K. Rowling", bio: "Fantasy novelist." },
+ { author_id: "A008", name: "George Orwell", bio: "Political novelist." },
+ { author_id: "A009", name: "Jane Austen", bio: "Classic novelist." },
+ { author_id: "A010", name: "Mark Twain", bio: "American author." }
+]);
+// -- books (10)
+db.books.insertMany([
+ { book_id: "B001", title: "Malgudi Days", authors: ["A001"], isbn: "ISBN-0001", publishedDate:
+ISODate("1943-01-01"), pages: 250, description: "Collection of short stories", categories: ["Fiction",
+"Short Stories"] },
+ { book_id: "B002", title: "The God of Small Things", authors: ["A002"], isbn: "ISBN-0002",
+publishedDate: ISODate("1997-06-01"), pages: 340, description: "Novel about family", categories:
+["Fiction"] },
+ { book_id: "B003", title: "The Room on the Roof", authors: ["A003"], isbn: "ISBN-0003",
+publishedDate: ISODate("1956-01-01"), pages: 220, description: "Coming-of-age novel", categories:
+["Fiction"] },
+ { book_id: "B004", title: "Pinjar", authors: ["A004"], isbn: "ISBN-0004", publishedDate:
+ISODate("1950-01-01"), pages: 300, description: "Partition novel", categories: ["Historical"] },
+ { book_id: "B005", title: "Five Point Someone", authors: ["A005"], isbn: "ISBN-0005", publishedDate:
+ISODate("2004-01-01"), pages: 280, description: "Campus story", categories: ["Fiction", "Young Adult"]
+},
+ { book_id: "B006", title: "Possession", authors: ["A006"], isbn: "ISBN-0006", publishedDate:
+ISODate("1990-01-01"), pages: 480, description: "Literary novel", categories: ["Fiction"] },
+ { book_id: "B007", title: "Harry Potter and the Philosopher's Stone", authors: ["A007"], isbn: "ISBN0007", publishedDate: ISODate("1997-06-26"), pages: 223, description: "Fantasy novel", categories:
+["Fantasy", "Young Adult"] },
+ { book_id: "B008", title: "1984", authors: ["A008"], isbn: "ISBN-0008", publishedDate: ISODate("1949-
+06-08"), pages: 328, description: "Dystopian novel", categories: ["Fiction", "Political"] },
+ { book_id: "B009", title: "Pride and Prejudice", authors: ["A009"], isbn: "ISBN-0009", publishedDate:
+ISODate("1813-01-28"), pages: 279, description: "Classic romance", categories: ["Classic"] },
+ { book_id: "B010", title: "Adventures of Huckleberry Finn", authors: ["A010"], isbn: "ISBN-0010",
+publishedDate: ISODate("1884-12-10"), pages: 366, description: "American classic", categories:
+["Classic"] }
+]);
+// -- members (10)
+db.members.insertMany([
+ { member_id: "M001", name: "Asha Rao", email: "asha@example.com", joinedDate: ISODate("2022-
+01-10") },
+ { member_id: "M002", name: "Ravi Kumar", email: "ravi@example.com", joinedDate:
+ISODate("2021-03-05") },
+ { member_id: "M003", name: "Sita Devi", email: "sita@example.com", joinedDate: ISODate("2023-
+02-20") },
+ { member_id: "M004", name: "Arjun N", email: "arjun@example.com", joinedDate: ISODate("2020-
+11-15") },
+ { member_id: "M005", name: "Leela", email: "leela@example.com", joinedDate: ISODate("2021-12-
+01") },
+ { member_id: "M006", name: "Manish", email: "manish@example.com", joinedDate: ISODate("2022-
+04-02") },
+ { member_id: "M007", name: "Priya", email: "priya@example.com", joinedDate: ISODate("2024-05-
+12") },
+ { member_id: "M008", name: "Karan", email: "karan@example.com", joinedDate: ISODate("2020-09-
+30") },
+ { member_id: "M009", name: "Nila", email: "nila@example.com", joinedDate: ISODate("2023-06-
+18") },
+ { member_id: "M010", name: "Suresh", email: "suresh@example.com", joinedDate: ISODate("2021-
+07-01") }
+]);
+// -- borrowRecords (10)
+db.borrowRecords.insertMany([
+ { record_id: "R001", book_id: "B001", member_id: "M001", borrowDate: ISODate("2024-08-01"),
+dueDate: ISODate("2024-08-15"), returned: false },
+ { record_id: "R002", book_id: "B002", member_id: "M002", borrowDate: ISODate("2024-07-10"),
+dueDate: ISODate("2024-07-24"), returned: true, returnDate: ISODate("2024-07-20") },
+ { record_id: "R003", book_id: "B003", member_id: "M003", borrowDate: ISODate("2024-07-15"),
+dueDate: ISODate("2024-07-29"), returned: true, returnDate: ISODate("2024-07-28") },
+ { record_id: "R004", book_id: "B004", member_id: "M004", borrowDate: ISODate("2024-06-20"),
+dueDate: ISODate("2024-07-04"), returned: true, returnDate: ISODate("2024-06-30") },
+ { record_id: "R005", book_id: "B005", member_id: "M005", borrowDate: ISODate("2024-07-30"),
+dueDate: ISODate("2024-08-13"), returned: false },
+ { record_id: "R006", book_id: "B006", member_id: "M006", borrowDate: ISODate("2024-06-01"),
+dueDate: ISODate("2024-06-15"), returned: true, returnDate: ISODate("2024-06-10") },
+ { record_id: "R007", book_id: "B007", member_id: "M007", borrowDate: ISODate("2024-08-05"),
+dueDate: ISODate("2024-08-19"), returned: false },
+ { record_id: "R008", book_id: "B008", member_id: "M008", borrowDate: ISODate("2024-07-01"),
+dueDate: ISODate("2024-07-15"), returned: true, returnDate: ISODate("2024-07-14") },
+ { record_id: "R009", book_id: "B009", member_id: "M009", borrowDate: ISODate("2024-07-25"),
+dueDate: ISODate("2024-08-08"), returned: false },
+ { record_id: "R010", book_id: "B010", member_id: "M010", borrowDate: ISODate("2024-06-11"),
+dueDate: ISODate("2024-06-25"), returned: true, returnDate: ISODate("2024-06-20") }
+]);
+// ============ 3. Index creation ============
+// i) Single-field index on books.book_id (and on members.member_id) - helps fast lookup
+db.books.createIndex({ book_id: 1 }, { name: "idx_books_book_id" });
+db.members.createIndex({ member_id: 1 }, { name: "idx_members_member_id" });
+// ii) Compound index: borrowRecords on (member_id, borrowDate desc) - fast borrowing history per
+member sorted by date
+db.borrowRecords.createIndex({ member_id: 1, borrowDate: -1 }, { name:
+"idx_borrow_member_borrowDate" });
+// iii) Text index: search on books.title and books.description
+db.books.createIndex({ title: "text", description: "text" }, { name: "idx_books_text" });
+// iv) Unique indexes: ensure unique IDs (create unique on id fields)
+db.books.createIndex({ book_id: 1 }, { unique: true, name: "uq_books_book_id" }); // may be
+redundant with previous but ensures uniqueness
+db.members.createIndex({ member_id: 1 }, { unique: true, name: "uq_members_member_id" });
+db.authors.createIndex({ author_id: 1 }, { unique: true, name: "uq_authors_author_id" });
+db.borrowRecords.createIndex({ record_id: 1 }, { unique: true, name: "uq_borrow_record_id" });
+// Note: creating a unique index will fail if duplicates exist. We inserted unique ids above, so it's safe.
+// ============ 4. Performance test with explain() ============
+// Strategy:
+// - Create a copy of the collection without indexes to act as "without index" baseline.
+// - Run .explain("executionStats") on both collections for the same query and compare
+totalDocsExamined / executionTimeMillis.
+// Example Query A: Find book by a specific author quickly.
+// Query: Find books where authors array contains "A001" (R. K. Narayan)
+// Create a copy for baseline (no indexes)
+db.books.aggregate([{ $match: {} }, { $out: "books_copy_noindex" }]);
+// Ensure books_copy_noindex has no indexes except _id
+print("Indexes on books_copy_noindex:");
+printjson(db.books_copy_noindex.getIndexes());
+// A1: Explain on copy (no book text/index) - baseline
+print("\n=== Explain (no index) : find books by author A001 ===");
+let qA = { authors: "A001" };
+printjson(db.books_copy_noindex.find(qA).explain("executionStats"));
+// A2: Explain on real books collection (with index on book_id and text index).
+// Note: authors array is not indexed - we can create an index for authors to show difference
+db.books.createIndex({ authors: 1 }, { name: "idx_books_authors" });
+print("\n=== Explain (with authors index) : find books by author A001 ===");
+printjson(db.books.find(qA).explain("executionStats"));
+// Example Query B: Search books by title keyword (text index)
+// B1: explain on copy without text index (books_copy_noindex)
+let qB = { $text: { $search: "Malgudi" } };
+print("\n=== Explain (no index) : text search 'Malgudi' on books_copy_noindex ===");
+printjson(db.books_copy_noindex.find(qB).explain("executionStats"));
+// B2: explain on books with text index
+print("\n=== Explain (with text index) : text search 'Malgudi' on books ===");
+printjson(db.books.find(qB).explain("executionStats"));
+// Example Query C: Find overdue books (dueDate < now and returned:false)
+// For repeatability, set "now" variable
+const now = new Date();
+let qC = { dueDate: { $lt: now }, returned: false };
+// Create copy baseline for borrowRecords
+db.borrowRecords.aggregate([{ $match: {} }, { $out: "borrowRecords_copy_noindex" }]);
+print("\nIndexes on borrowRecords_copy_noindex:");
+printjson(db.borrowRecords_copy_noindex.getIndexes());
+// C1: explain on copy (no index)
+print("\n=== Explain (no index) : find overdue borrowRecords ===");
+printjson(db.borrowRecords_copy_noindex.find(qC).explain("executionStats"));
+// To speed up this query, create partial or compound indexes. We'll create a compound index
+(returned + dueDate)
+db.borrowRecords.createIndex({ returned: 1, dueDate: 1 }, { name: "idx_borrow_returned_dueDate"
+});
+print("\n=== Explain (with idx_borrow_returned_dueDate) : find overdue borrowRecords ===");
+printjson(db.borrowRecords.find(qC).explain("executionStats"));
+// Example Query D: Get borrowing history of a specific member sorted by date
+let qD = { member_id: "M001" };
+// D1: baseline (copy has no compound index)
+db.borrowRecords_copy_noindex.dropIndexes(); // ensure only _id exists on copy for fairness
+print("\n=== Explain (no index) : borrow history for M001 (no index) ===");
+printjson(db.borrowRecords_copy_noindex.find(qD).sort({ borrowDate: -1
+}).explain("executionStats"));
+// D2: with compound index (member_id + borrowDate desc) on real collection
+print("\n=== Explain (with idx_borrow_member_borrowDate) : borrow history for M001 ===");
+printjson(db.borrowRecords.find(qD).sort({ borrowDate: -1 }).explain("executionStats"));
+// ============ 5. Additional example queries to run interactively ============
+/*
+i) Find books by a specific author quickly:
+ db.books.find({ authors: "A001" })
+ii) Search books by title keyword (text index):
+ db.books.find({ $text: { $search: "Malgudi" } }, { score: { $meta: "textScore" } }).sort({ score: { $meta:
+"textScore" } })
+iii) Find overdue books efficiently:
+ db.borrowRecords.find({ dueDate: { $lt: new Date() }, returned: false })
+iv) Get borrowing history of a specific member, sorted by date:
+ db.borrowRecords.find({ member_id: "M001" }).sort({ borrowDate: -1 })
+*/
+// ============ 6. Useful helper commands ============
+print("\n--- Indexes summary ---");
+print("books indexes:");
+printjson(db.books.getIndexes());
+print("borrowRecords indexes:");
+printjson(db.borrowRecords.getIndexes());
+print("members indexes:");
+printjson(db.members.getIndexes());
+print("authors indexes:");
+printjson(db.authors.getIndexes());
+print("\n--- Collection counts ---");
+printjson({
+ books: db.books.countDocuments(),
+ books_copy_noindex: db.books_copy_noindex.countDocuments(),
+ borrowRecords: db.borrowRecords.countDocuments(),
+ borrowRecords_copy_noindex: db.borrowRecords_copy_noindex.countDocuments()
+});
+print("\n--- Demo complete ---");
