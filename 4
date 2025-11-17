@@ -1,0 +1,279 @@
+Create patient database with 5 collections: patients; doctors; medicines;
+prescriptions; sales Schema validation will ensure fields like age are within a valid
+range, dates follow ISODate format, and IDs are unique. Then create different indexes
+and run queries to show their use.
+a. Create Database and Collections with Validation
+b. Insert Sample Data (10 Documents per Collection)
+// Switch to database
+use("patient_db");
+// Create patients collection with validation
+db.createCollection("patients", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["patient_id", "name", "age", "gender", "contact", "created_at"],
+ properties: {
+ patient_id: { bsonType: "string" },
+ name: { bsonType: "string" },
+ age: { bsonType: "int", minimum: 0, maximum: 120 },
+ gender: { enum: ["Male", "Female", "Other"] },
+ contact: { bsonType: "string" },
+ address: { bsonType: "string" },
+ created_at: { bsonType: "date" }
+ }
+ }
+ }
+});
+// Create doctors collection
+db.createCollection("doctors", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["doctor_id", "name", "specialty", "contact", "created_at"],
+ properties: {
+ doctor_id: { bsonType: "string" },
+ name: { bsonType: "string" },
+ specialty: { bsonType: "string" },
+ contact: { bsonType: "string" },
+ created_at: { bsonType: "date" }
+ }
+ }
+ }
+});
+// Create medicines collection
+db.runCommand({
+ collMod: "medicines",
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["medicine_id","name","manufacturer","expiry_date","price"],
+ properties: {
+ medicine_id: { bsonType: "string" },
+ name: { bsonType: "string" },
+ manufacturer: { bsonType: "string" },
+ expiry_date: { bsonType: "date" },
+ // accept int, double, decimal for price
+ price: { bsonType: ["double","int","decimal"], minimum: 0 }
+ }
+ }
+ },
+ validationLevel: "moderate"
+});
+// Create prescriptions collection
+db.createCollection("prescriptions", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["prescription_id", "patient_id", "doctor_id", "medicines", "date_issued"],
+ properties: {
+ prescription_id: { bsonType: "string" },
+ patient_id: { bsonType: "string" },
+ doctor_id: { bsonType: "string" },
+ medicines: {
+ bsonType: "array",
+ items: {
+ bsonType: "object",
+ required: ["medicine_id", "dosage", "duration"],
+ properties: {
+ medicine_id: { bsonType: "string" },
+ dosage: { bsonType: "string" },
+ duration: { bsonType: "string" }
+ }
+ }
+ },
+ date_issued: { bsonType: "date" },
+ notes: { bsonType: "string" }
+ }
+ }
+ }
+});
+// Create sales collection
+db.runCommand({
+ collMod: "sales",
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["sale_id","medicine_id","quantity","total_price","sale_date"],
+ properties: {
+ sale_id: { bsonType: "string" },
+ medicine_id: { bsonType: "string" },
+ quantity: { bsonType: "int", minimum: 1 },
+ total_price: { bsonType: ["double","int","decimal"], minimum: 0 },
+ sale_date: { bsonType: "date" },
+ customer_name: { bsonType: "string" }
+ }
+ }
+ },
+ validationLevel: "moderate"
+});
+// -- patients (10)
+db.patients.insertMany([
+{ patient_id: "P001", name: "Asha Rao", age: 25, gender: "Female", contact: "987650001",
+address: "Bengaluru", created_at: ISODate("2024-01-10") },
+{ patient_id: "P002", name: "Ravi Kumar", age: 40, gender: "Male", contact: "987650002",
+address: "Mysuru", created_at: ISODate("2024-03-05") },
+{ patient_id: "P003", name: "Sita Devi", age: 33, gender: "Female", contact: "987650003",
+address: "Hubli", created_at: ISODate("2024-02-20") },
+{ patient_id: "P004", name: "Arjun N", age: 60, gender: "Male", contact: "987650004",
+address: "Mangalore", created_at: ISODate("2023-11-15") },
+{ patient_id: "P005", name: "Leela", age: 29, gender: "Female", contact: "987650005",
+address: "Belgaum", created_at: ISODate("2023-12-01") },
+{ patient_id: "P006", name: "Manish", age: 50, gender: "Male", contact: "987650006",
+address: "Bengaluru", created_at: ISODate("2024-04-02") },
+{ patient_id: "P007", name: "Priya", age: 20, gender: "Female", contact: "987650007",
+address: "Tumkur", created_at: ISODate("2024-05-12") },
+{ patient_id: "P008", name: "Karan", age: 70, gender: "Male", contact: "987650008", address:
+"Dharwad", created_at: ISODate("2023-09-30") },
+{ patient_id: "P009", name: "Nila", age: 35, gender: "Female", contact: "987650009", address:
+"Udupi", created_at: ISODate("2024-06-18") },
+{ patient_id: "P010", name: "Suresh", age: 45, gender: "Male", contact: "987650010", address:
+"Gulbarga", created_at: ISODate("2024-07-01") }
+])
+// -- doctors (10)
+db.doctors.insertMany([
+{ doctor_id: "D001", name: "Dr. Meera", specialty: "Cardiology", contact: "990001001",
+created_at: ISODate("2022-02-10") },
+{ doctor_id: "D002", name: "Dr. Raj", specialty: "General", contact: "990001002", created_at:
+ISODate("2023-01-20") },
+{ doctor_id: "D003", name: "Dr. Nisha", specialty: "Dermatology", contact: "990001003",
+created_at: ISODate("2021-10-12") },
+{ doctor_id: "D004", name: "Dr. Bhat", specialty: "Orthopedics", contact: "990001004",
+created_at: ISODate("2023-05-05") },
+{ doctor_id: "D005", name: "Dr. Patel", specialty: "Pediatrics", contact: "990001005",
+created_at: ISODate("2024-02-02") },
+{ doctor_id: "D006", name: "Dr. Sunil", specialty: "Neurology", contact: "990001006",
+created_at: ISODate("2022-09-09") },
+{ doctor_id: "D007", name: "Dr. Anu", specialty: "Gynecology", contact: "990001007",
+created_at: ISODate("2024-06-01") },
+{ doctor_id: "D008", name: "Dr. Mehta", specialty: "ENT", contact: "990001008", created_at:
+ISODate("2023-07-07") },
+{ doctor_id: "D009", name: "Dr. Roy", specialty: "General", contact: "990001009",
+created_at: ISODate("2024-03-03") },
+{ doctor_id: "D010", name: "Dr. Iyer", specialty: "Cardiology", contact: "990001010",
+created_at: ISODate("2021-11-11") }
+])
+// -- medicines (10)
+db.medicines.insertMany([
+{ medicine_id: "M001", name: "Paracetamol", manufacturer: "PharmaA", expiry_date:
+ISODate("2026-12-31"), price: 10.0 },
+{ medicine_id: "M002", name: "Amoxicillin", manufacturer: "PharmaB", expiry_date:
+ISODate("2025-06-30"), price: 25.0 },
+{ medicine_id: "M003", name: "Cetirizine", manufacturer: "PharmaA", expiry_date:
+ISODate("2027-02-28"), price: 12.0 },
+{ medicine_id: "M004", name: "Atorvastatin", manufacturer: "PharmaC", expiry_date:
+ISODate("2026-08-15"), price: 50.0 },
+{ medicine_id: "M005", name: "Metformin", manufacturer: "PharmaD", expiry_date:
+ISODate("2025-11-11"), price: 40.0 },
+{ medicine_id: "M006", name: "Ibuprofen", manufacturer: "PharmaA", expiry_date:
+ISODate("2026-05-05"), price: 15.0 },
+{ medicine_id: "M007", name: "Omeprazole", manufacturer: "PharmaB", expiry_date:
+ISODate("2027-09-09"), price: 30.0 },
+{ medicine_id: "M008", name: "Aspirin", manufacturer: "PharmaE", expiry_date:
+ISODate("2025-03-03"), price: 8.0 },
+{ medicine_id: "M009", name: "Insulin", manufacturer: "PharmaF", expiry_date:
+ISODate("2025-07-07"), price: 200.0 },
+{ medicine_id: "M010", name: "VitaminC", manufacturer: "PharmaA", expiry_date:
+ISODate("2028-01-01"), price: 5.0 }
+])
+// -- prescriptions (10)
+db.prescriptions.insertMany([
+{ prescription_id: "PR001", patient_id: "P001", doctor_id: "D002", medicines:
+[{medicine_id:"M001",dosage:"500mg",duration:"5 days"}], date_issued: ISODate("2024-
+01-11"), notes: "Fever" },
+{ prescription_id: "PR002", patient_id: "P002", doctor_id: "D001", medicines:
+[{medicine_id:"M004",dosage:"10mg",duration:"30 days"}], date_issued: ISODate("2024-
+03-06") },
+{ prescription_id: "PR003", patient_id: "P003", doctor_id: "D003", medicines:
+[{medicine_id:"M003",dosage:"10mg",duration:"7 days"}], date_issued: ISODate("2024-02-
+22") },
+{ prescription_id: "PR004", patient_id: "P004", doctor_id: "D004", medicines:
+[{medicine_id:"M006",dosage:"200mg",duration:"3 days"}], date_issued: ISODate("2023-11-
+16") },
+{ prescription_id: "PR005", patient_id: "P005", doctor_id: "D005", medicines:
+[{medicine_id:"M007",dosage:"20mg",duration:"14 days"}], date_issued: ISODate("2023-
+12-02") },
+{ prescription_id: "PR006", patient_id: "P006", doctor_id: "D006", medicines:
+[{medicine_id:"M009",dosage:"variable",duration:"ongoing"}], date_issued: ISODate("2024-
+04-03") },
+{ prescription_id: "PR007", patient_id: "P007", doctor_id: "D007", medicines:
+[{medicine_id:"M010",dosage:"1 tab",duration:"10 days"}], date_issued: ISODate("2024-05-
+13") },
+{ prescription_id: "PR008", patient_id: "P008", doctor_id: "D008", medicines:
+[{medicine_id:"M002",dosage:"500mg",duration:"7 days"}], date_issued: ISODate("2023-
+10-01") },
+{ prescription_id: "PR009", patient_id: "P009", doctor_id: "D009", medicines:
+[{medicine_id:"M005",dosage:"500mg",duration:"90 days"}], date_issued: ISODate("2024-
+06-19") },
+{ prescription_id: "PR010", patient_id: "P010", doctor_id: "D010", medicines:
+[{medicine_id:"M008",dosage:"75mg",duration:"7 days"}], date_issued: ISODate("2024-07-
+02") }
+])
+// -- sales (10)
+db.sales.insertMany([
+{ sale_id: "S001", medicine_id: "M001", quantity: 2, total_price: 20.0, sale_date:
+ISODate("2024-01-11"), customer_name: "Asha Rao" },
+{ sale_id: "S002", medicine_id: "M004", quantity: 1, total_price: 50.0, sale_date:
+ISODate("2024-03-06"), customer_name: "Ravi Kumar" },
+{ sale_id: "S003", medicine_id: "M003", quantity: 3, total_price: 36.0, sale_date:
+ISODate("2024-02-22"), customer_name: "Sita Devi" },
+{ sale_id: "S004", medicine_id: "M006", quantity: 1, total_price: 15.0, sale_date:
+ISODate("2023-11-16"), customer_name: "Arjun N" },
+{ sale_id: "S005", medicine_id: "M007", quantity: 2, total_price: 60.0, sale_date:
+ISODate("2023-12-02"), customer_name: "Leela" },
+{ sale_id: "S006", medicine_id: "M009", quantity: 1, total_price: 200.0, sale_date:
+ISODate("2024-04-03"), customer_name: "Manish" },
+{ sale_id: "S007", medicine_id: "M010", quantity: 5, total_price: 25.0, sale_date:
+ISODate("2024-05-13"), customer_name: "Priya" },
+{ sale_id: "S008", medicine_id: "M002", quantity: 2, total_price: 50.0, sale_date:
+ISODate("2023-10-01"), customer_name: "Karan" },
+{ sale_id: "S009", medicine_id: "M005", quantity: 1, total_price: 40.0, sale_date:
+ISODate("2024-06-19"), customer_name: "Nila" },
+{ sale_id: "S010", medicine_id: "M008", quantity: 4, total_price: 32.0, sale_date:
+ISODate("2024-07-02"), customer_name: "Suresh" }
+])
+c. Creating Indexes
+i. Single Field Index
+ii. Compound Index
+iii. Text Index
+iv. Partial Index
+v. Unique Index
+// Single Field Index
+db.patients.createIndex({ patient_id: 1 });
+// Compound Index
+db.prescriptions.createIndex({ patient_id: 1, date_issued: -1 });
+// Text Index
+db.medicines.createIndex({ name: "text", manufacturer: "text" });
+// Partial Index (only where total_price > 50)
+db.sales.createIndex(
+ { total_price: 1 },
+ { partialFilterExpression: { total_price: { $gt: 50 } } }
+);
+// Unique Index
+db.doctors.createIndex({ doctor_id: 1 }, { unique: true });
+d. Example Queries Using Indexes
+// Query 1: Single-field index
+db.patients.find({ patient_id: "P001" });
+// Query 2: Compound index
+db.prescriptions.find({ patient_id: "P001" }).sort({ date_issued: -1 });
+// Query 3: Text index
+db.medicines.find({ $text: { $search: "Paracetamol PharmaA" } });
+// Query 4: Partial index
+db.sales.find({ total_price: { $gt: 50 } });
+e. Index Verification
+// Show all indexes
+db.patients.getIndexes();
+db.prescriptions.getIndexes();
+db.sales.getIndexes();
+// Check explain plan (to confirm index usage)
+db.prescriptions.find({ patient_id: "P001" }).sort({ date_issued: -1
+}).explain("executionStats");
+f. Performance Comparison Example
+i. Without Index
+ii. With Index
+To see difference:
+1. Run a query before creating index (time manually).
+2. Then create the index and re-run the same query.
+Or, duplicate the collection:
+db.prescriptions.aggregate([{ $match: {} }, { $out: "prescriptions_copy" }]);
+db.prescriptions_copy.dropIndexes();
+Then compare query time on prescriptions (with index) vs prescriptions_copy (without index).
