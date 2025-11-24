@@ -1,0 +1,112 @@
+1. Create an Employee collection consisting of Employee ID, Name, Age, Gender,
+Department and Address. Perform the following CRUD operations using MongoDB
+a. Insert details of the employees as documents.
+b. Retrieve the employee details whose age is less than or equal to 40 and display
+the same.
+c. Display the employees whose salary is less than 50k.
+d. Demonstrate Update operation.
+e. Remove the details of the employees belongs to any particular department.
+use employeeDB;
+db.createCollection("Employee")
+switched to db employeeDB;
+db.Employee.insertMany([
+ { EmpID: 101, Name: "Ravi Kumar", Age: 35, Gender: "Male", Department: "IT", Salary: 60000,
+Address: "Mysore" },
+ { EmpID: 102, Name: "Asha R", Age: 42, Gender: "Female", Department: "HR", Salary: 48000,
+Address: "Bangalore" },
+ { EmpID: 103, Name: "Kiran", Age: 29, Gender: "Male", Department: "Finance", Salary: 52000,
+Address: "Mangalore" },
+ { EmpID: 104, Name: "Priya", Age: 39, Gender: "Female", Department: "IT", Salary: 45000,
+Address: "Mysore" },
+ { EmpID: 105, Name: "Vikram", Age: 41, Gender: "Male", Department: "Sales", Salary: 55000,
+Address: "Hubli" }
+])
+{
+ acknowledged: true,
+ insertedIds: {
+ '0': ObjectId('68abd8d00420f989304d6990'),
+ '1': ObjectId('68abd8d00420f989304d6991'),
+ '2': ObjectId('68abd8d00420f989304d6992'),
+ '3': ObjectId('68abd8d00420f989304d6993'),
+ '4': ObjectId('68abd8d00420f989304d6994')
+ }
+}
+db.Employee.find({ Age: { $lte: 40 } })
+{
+ _id: ObjectId('68abd8d00420f989304d6990'),
+ EmpID: 101,
+ Name: 'Ravi Kumar',
+ Age: 35,
+ Gender: 'Male',
+ Department: 'IT',
+ Salary: 60000,
+ Address: 'Mysore'
+}
+{
+ _id: ObjectId('68abd8d00420f989304d6992'),
+ EmpID: 103,
+ Name: 'Kiran',
+ Age: 29,
+ Gender: 'Male',
+ Department: 'Finance',
+ Salary: 52000,
+ Address: 'Mangalore'
+}
+{
+ _id: ObjectId('68abd8d00420f989304d6993'),
+ EmpID: 104,
+ Name: 'Priya',
+ Age: 39,
+ Gender: 'Female',
+ Department: 'IT',
+ Salary: 45000,
+ Address: 'Mysore'
+}
+db.Employee.find({ Salary: { $lt: 50000 } })
+{
+ _id: ObjectId('68abd8d00420f989304d6991'),
+ EmpID: 102,
+ Name: 'Asha R',
+ Age: 42,
+ Gender: 'Female',
+ Department: 'HR',
+ Salary: 48000,
+ Address: 'Bangalore'
+}
+{
+ _id: ObjectId('68abd8d00420f989304d6993'),
+ EmpID: 104,
+ Name: 'Priya',
+ Age: 39,
+ Gender: 'Female',
+ Department: 'IT',
+ Salary: 45000,
+ Address: 'Mysore'
+}
+db.Employee.updateOne(
+ { Name: "Priya" },
+ { $set: { Salary: 55000 } }
+)
+{
+ acknowledged: true,
+ insertedId: null,
+ matchedCount: 1,
+ modifiedCount: 1,
+ upsertedCount: 0
+}
+db.Employee.updateOne(
+ { Name: "Kiran" },
+ { $set: { Department: "Accounts" } }
+)
+{
+ acknowledged: true,
+ insertedId: null,
+ matchedCount: 1,
+ modifiedCount: 1,
+ upsertedCount: 0
+}
+db.Employee.deleteMany({ Department: "HR" })
+{
+ acknowledged: true,
+ deletedCount: 1
+}
