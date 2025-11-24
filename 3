@@ -1,0 +1,230 @@
+Create a pharmacy database containing customers, medicines, suppliers, orders, and
+pharmacists. Schema validation will enforce constraints like: age must be ≥ 18 for
+customers Expiry Date must be a valid ISO date in medicines Stock must be ≥ 0 Insert
+≥10 documents into each collection and perform multi-collection aggregations.
+a. Switch to database
+b. Create collections with validation
+c. Insert sample data (10 docs each)
+d. Aggregation queries
+i. List all orders with customer name and medicine name
+ii. Total sales per medicine
+iii. Supplier-wise revenue
+iv. Medicines below stock threshold (e.g., < 70 units)
+v. Customer order summary
+a. use pharmacyDB
+b. Collections:
+db.createCollection("customers", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["customer_id","name","age","phone"],
+ properties: {
+ customer_id: { bsonType: "int" },
+ name: { bsonType: "string" },
+ age: { bsonType: "int", minimum: 18 },
+ phone: { bsonType: "string" }
+ }
+ }
+ }
+})
+db.createCollection("suppliers", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["supplier_id","name","contact"],
+ properties: {
+ supplier_id: { bsonType: "int" },
+ name: { bsonType: "string" },
+ contact: { bsonType: "string" }
+ }
+ }
+ }
+})
+db.createCollection("pharmacists", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["pharmacist_id","name","shift"],
+ properties: {
+ pharmacist_id: { bsonType: "int" },
+ name: { bsonType: "string" },
+ shift: { enum: ["Morning","Evening","Night"] }
+ }
+ }
+ }
+})
+db.createCollection("medicines", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["medicine_id","name","price","stock","expiry"],
+ properties: {
+ medicine_id: { bsonType: "int" },
+ name: { bsonType: "string" },
+ price: { bsonType: ["double","int"] },
+ stock: { bsonType: "int", minimum: 0 },
+ expiry: { bsonType: "date" }
+ }
+ }
+ }
+})
+db.createCollection("orders", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: [
+ "order_id",
+ "customer_id",
+ "medicine_id",
+ "quantity",
+ "pharmacist_id",
+ "total"
+ ],
+ properties: {
+ order_id: { bsonType: "int" },
+ customer_id: { bsonType: "int" },
+ medicine_id: { bsonType: "int" },
+ pharmacist_id: { bsonType: "int" },
+ quantity: { bsonType: "int", minimum: 1 },
+ total: { bsonType: ["double", "int"], minimum: 0 }
+ }
+ }
+ }
+})
+c. Insertions:
+db.orders.insertMany([
+{order_id:NumberInt(1),customer_id:NumberInt(1),medicine_id:NumberInt(1
+),quantity:NumberInt(5),pharmacist_id:NumberInt(1),total:100.0},
+{order_id:NumberInt(2),customer_id:NumberInt(2),medicine_id:NumberInt(2
+),quantity:NumberInt(2),pharmacist_id:NumberInt(2),total:100.0},
+{order_id:NumberInt(3),customer_id:NumberInt(3),medicine_id:NumberInt(3
+),quantity:NumberInt(3),pharmacist_id:NumberInt(3),total:90.0},
+{order_id:NumberInt(4),customer_id:NumberInt(4),medicine_id:NumberInt(4
+),quantity:NumberInt(4),pharmacist_id:NumberInt(1),total:60.0},
+{order_id:NumberInt(5),customer_id:NumberInt(5),medicine_id:NumberInt(5
+),quantity:NumberInt(2),pharmacist_id:NumberInt(2),total:180.0},
+{order_id:NumberInt(6),customer_id:NumberInt(6),medicine_id:NumberInt(6
+),quantity:NumberInt(6),pharmacist_id:NumberInt(3),total:150.0},
+{order_id:NumberInt(7),customer_id:NumberInt(7),medicine_id:NumberInt(7
+),quantity:NumberInt(1),pharmacist_id:NumberInt(1),total:300.0},
+{order_id:NumberInt(8),customer_id:NumberInt(8),medicine_id:NumberInt(8
+),quantity:NumberInt(8),pharmacist_id:NumberInt(2),total:144.0},
+{order_id:NumberInt(9),customer_id:NumberInt(9),medicine_id:NumberInt(9
+),quantity:NumberInt(2),pharmacist_id:NumberInt(3),total:80.0},
+{order_id:NumberInt(10),customer_id:NumberInt(10),medicine_id:NumberIn
+t(10),quantity:NumberInt(1),pharmacist_id:NumberInt(1),total:60.0}
+])
+db.medicines.insertMany([
+{medicine_id:NumberInt(1),name:"Paracetamol",price:20.0,stock:NumberInt(
+120),expiry:ISODate("2025-12-31")},
+{medicine_id:NumberInt(2),name:"Amoxicillin",price:50.0,stock:NumberInt(8
+0),expiry:ISODate("2025-06-30")},
+{medicine_id:NumberInt(3),name:"Ibuprofen",price:30.0,stock:NumberInt(60
+),expiry:ISODate("2024-09-30")},
+{medicine_id:NumberInt(4),name:"Cetirizine",price:15.0,stock:NumberInt(10
+0),expiry:ISODate("2025-03-31")},
+{medicine_id:NumberInt(5),name:"Cough
+Syrup",price:90.0,stock:NumberInt(45),expiry:ISODate("2024-11-30")},
+{medicine_id:NumberInt(6),name:"Vitamin
+C",price:25.0,stock:NumberInt(200),expiry:ISODate("2026-01-01")},
+{medicine_id:NumberInt(7),name:"Insulin",price:300.0,stock:NumberInt(35),e
+xpiry:ISODate("2024-07-15")},
+{medicine_id:NumberInt(8),name:"Antacid",price:18.0,stock:NumberInt(150),
+expiry:ISODate("2026-05-01")},
+{medicine_id:NumberInt(9),name:"Pain
+Balm",price:40.0,stock:NumberInt(95),expiry:ISODate("2025-08-20")},
+{medicine_id:NumberInt(10),name:"Eye
+Drops",price:60.0,stock:NumberInt(50),expiry:ISODate("2024-10-05")}
+])
+db.customers.insertMany([
+{customer_id:1,name:"Alice",age:25,phone:"9876543210"},
+{customer_id:2,name:"Bob",age:30,phone:"9876500011"},
+{customer_id:3,name:"Charlie",age:28,phone:"9876500022"},
+{customer_id:4,name:"David",age:35,phone:"9876500033"},
+{customer_id:5,name:"Eva",age:40,phone:"9876500044"},
+{customer_id:6,name:"Frank",age:22,phone:"9876500055"},
+{customer_id:7,name:"Grace",age:26,phone:"9876500066"},
+{customer_id:8,name:"Helen",age:31,phone:"9876500077"},
+{customer_id:9,name:"Ivan",age:38,phone:"9876500088"},
+{customer_id:10,name:"Jack",age:29,phone:"9876500099"}
+])
+db.suppliers.insertMany([
+{supplier_id:1,name:"MediSupply Co.",contact:"987600001"},
+{supplier_id:2,name:"HealthFirst Ltd.",contact:"987600002"},
+{supplier_id:3,name:"CareWell Pharma",contact:"987600003"}
+])
+db.pharmacists.insertMany([
+{pharmacist_id:1,name:"Dr. Smith",shift:"Morning"},
+{pharmacist_id:2,name:"Dr. Rose",shift:"Evening"},
+{pharmacist_id:3,name:"Dr. John",shift:"Night"}
+])
+e. Aggregations:
+db.orders.aggregate([
+ { $lookup: {
+ from: "customers",
+ localField: "customer_id",
+ foreignField: "customer_id",
+ as: "customer"
+ }},
+ { $lookup: {
+ from: "medicines",
+ localField: "medicine_id",
+ foreignField: "medicine_id",
+ as: "medicine"
+ }},
+ { $project: {
+ order_id: 1,
+ customer_name: { $arrayElemAt: ["$customer.name",0] },
+ medicine_name: { $arrayElemAt: ["$medicine.name",0] },
+ quantity:1,
+ total:1
+ }}
+])
+db.orders.aggregate([
+ { $group: { _id: "$medicine_id", totalSales: { $sum: "$total" } } },
+ { $lookup: {
+ from: "medicines",
+ localField: "_id",
+ foreignField: "medicine_id",
+ as: "medicine"
+ }},
+ { $project: { medicine_name: { $arrayElemAt: ["$medicine.name",0] }, totalSales: 1 } }
+])
+// Add supplier_id to medicines before running this.
+db.medicines.updateMany({},[{$set:{supplier_id:1}}]) // Example
+db.orders.aggregate([
+ { $lookup: {
+ from: "medicines",
+ localField: "medicine_id",
+ foreignField: "medicine_id",
+ as: "med"
+ }},
+ { $unwind: "$med" },
+ { $group: { _id: "$med.supplier_id", revenue: { $sum: "$total" } } },
+ { $lookup: {
+ from: "suppliers",
+ localField: "_id",
+ foreignField: "supplier_id",
+ as: "supplier"
+ }},
+ { $project: { supplier_name: { $arrayElemAt: ["$supplier.name",0] }, revenue: 1 } }
+])
+db.medicines.find({ stock: { $lt: 70 } }, { name:1, stock:1 })
+db.orders.aggregate([
+ { $group: {
+ _id: "$customer_id",
+ totalOrders: { $sum: 1 },
+ totalAmount: { $sum: "$total" }
+ }},
+ { $lookup: {
+ from: "customers",
+ localField: "_id",
+ foreignField: "customer_id",
+ as: "customer"
+ }},
+ { $project: {
+ customer_name: { $arrayElemAt: ["$customer.name",0] },
+ totalOrders:1,
+ totalAmount:1
+ }}
+])
