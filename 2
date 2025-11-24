@@ -1,0 +1,344 @@
+ Create a university database containing collections for students, courses,
+departments, enrollments, and faculty. Each collection will have schema validation
+rules (e.g., minimum age, valid dates).Insert sample data and perform aggregation
+queries involving $lookup, $match, $group, $project, $sort, $unwind, and $facet to
+produce complex reports.
+a. Switch to database
+b. Create collections with validation
+c. Insert sample data (10+ docs each)
+d. Aggregation queries
+i. List each student with department name
+ii. Show each student’s enrolled courses with course names
+iii. Number of students per department
+iv. Faculty list with their courses and departments
+v. Department summary - total students, total faculty, total courses
+1. a. use university
+b. // Departments
+db.createCollection("departments", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["deptId","name","establishedYear"],
+ properties: {
+ deptId: { bsonType: "int" },
+ name: { bsonType: "string", minLength: 2 },
+ establishedYear: { bsonType: "int", minimum: 1950, maximum: 2100 }
+ }
+ }
+ }
+});
+// Students
+db.createCollection("students", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["studentId","name","age","gender","deptId","admissionDate"],
+ properties: {
+ studentId: { bsonType: "int" },
+ name: { bsonType: "string", minLength: 3 },
+ age: { bsonType: "int", minimum: 16, maximum: 120 },
+ gender: { enum: ["Male","Female","Other"] },
+ deptId: { bsonType: "int" },
+ admissionDate: { bsonType: "date" },
+ email: { bsonType: "string", pattern: "^\\S+@\\S+\\.\\S+$" }
+ }
+ }
+ }
+});
+// Faculty
+db.createCollection("faculty", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["facultyId","name","deptId","hireDate","title"],
+ properties: {
+ facultyId: { bsonType: "int" },
+ name: { bsonType: "string", minLength: 3 },
+ deptId: { bsonType: "int" },
+ hireDate: { bsonType: "date" },
+ title: { bsonType: "string" },
+ email: { bsonType: "string", pattern: "^\\S+@\\S+\\.\\S+$" }
+ }
+ }
+ }
+});
+// Courses
+db.createCollection("courses", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["courseId","name","deptId","credits"],
+ properties: {
+ courseId: { bsonType: "int" },
+ name: { bsonType: "string", minLength: 3 },
+ deptId: { bsonType: "int" },
+ credits: { bsonType: "int", minimum: 1, maximum: 6 },
+ level: { enum: ["UG","PG"] }
+ }
+ }
+ }
+});
+// Enrollments
+db.createCollection("enrollments", {
+ validator: {
+ $jsonSchema: {
+ bsonType: "object",
+ required: ["enrollId","studentId","courseId","semester","enrolledOn"],
+ properties: {
+ enrollId: { bsonType: "int" },
+ studentId: { bsonType: "int" },
+ courseId: { bsonType: "int" },
+ semester: { bsonType: "string", pattern: "^(Odd|Even) 20\\d{2}-\\d{2}$" },
+ enrolledOn: { bsonType: "date" },
+ grade: { bsonType: ["string","null"], pattern: "^(A|B|C|D|E|F)$" }
+ }
+ }
+ }
+});
+c. // Departments (5)
+db.departments.insertMany([
+ {deptId: 10, name: "Computer Science & Engineering", establishedYear: 1998},
+ {deptId: 20, name: "Information Science & Engineering", establishedYear: 2001},
+ {deptId: 30, name: "Electronics & Communication", establishedYear: 1995},
+ {deptId: 40, name: "Mechanical Engineering", establishedYear: 1985},
+ {deptId: 50, name: "Artificial Intelligence & Machine Learning", establishedYear: 2020}
+]);
+// Students (10+)
+db.students.insertMany([
+ {studentId: 1001, name: "Ananya S", age: 19, gender: "Female", deptId: 50, admissionDate:
+ISODate("2023-08-01"), email:"ananya@univ.edu"},
+ {studentId: 1002, name: "Rahul K", age: 20, gender: "Male", deptId: 10, admissionDate:
+ISODate("2022-08-01"), email:"rahulk@univ.edu"},
+ {studentId: 1003, name: "Priya R", age: 21, gender: "Female", deptId: 20, admissionDate:
+ISODate("2022-08-01"), email:"priya.r@univ.edu"},
+ {studentId: 1004, name: "Vivek N", age: 22, gender: "Male", deptId: 10, admissionDate:
+ISODate("2021-08-01"), email:"vivek@univ.edu"},
+ {studentId: 1005, name: "Ishaan M", age: 20, gender: "Male", deptId: 30, admissionDate:
+ISODate("2022-08-01"), email:"ishaan@univ.edu"},
+ {studentId: 1006, name: "Meghana P", age: 19, gender: "Female", deptId: 50,
+admissionDate: ISODate("2023-08-01"), email:"meghana@univ.edu"},
+ {studentId: 1007, name: "Sahana V", age: 20, gender: "Female", deptId: 20, admissionDate:
+ISODate("2022-08-01"), email:"sahana@univ.edu"},
+ {studentId: 1008, name: "Karthik T", age: 21, gender: "Male", deptId: 30, admissionDate:
+ISODate("2021-08-01"), email:"karthik@univ.edu"},
+ {studentId: 1009, name: "Deepa H", age: 22, gender: "Female", deptId: 40, admissionDate:
+ISODate("2021-08-01"), email:"deepa@univ.edu"},
+ {studentId: 1010, name: "Manoj B", age: 19, gender: "Male", deptId: 10, admissionDate:
+ISODate("2023-08-01"), email:"manoj@univ.edu"},
+ {studentId: 1011, name: "Neha J", age: 20, gender: "Female", deptId: 50, admissionDate:
+ISODate("2023-08-01"), email:"neha@univ.edu"}
+]);
+// Faculty (10+)
+db.faculty.insertMany([
+ {facultyId: 201, name:"Dr. Akshay Rao", deptId:10, hireDate:ISODate("2015-07-01"),
+title:"Professor", email:"akshay@univ.edu"},
+ {facultyId: 202, name:"Dr. Revathi S", deptId:50, hireDate:ISODate("2021-02-01"),
+title:"Associate Professor", email:"revathi@univ.edu"},
+ {facultyId: 203, name:"Prof. Manjunath", deptId:20, hireDate:ISODate("2018-01-10"),
+title:"Assistant Professor", email:"manju@univ.edu"},
+ {facultyId: 204, name:"Dr. Priyanka N", deptId:30, hireDate:ISODate("2016-06-15"),
+title:"Professor", email:"priyanka@univ.edu"},
+ {facultyId: 205, name:"Prof. Shweta G", deptId:40, hireDate:ISODate("2019-08-20"),
+title:"Assistant Professor", email:"shweta@univ.edu"},
+ {facultyId: 206, name:"Dr. Raghav", deptId:10, hireDate:ISODate("2012-12-01"),
+title:"Professor", email:"raghav@univ.edu"},
+ {facultyId: 207, name:"Prof. Harish", deptId:20, hireDate:ISODate("2020-03-01"),
+title:"Assistant Professor", email:"harish@univ.edu"},
+ {facultyId: 208, name:"Dr. Meera", deptId:50, hireDate:ISODate("2022-09-01"),
+title:"Assistant Professor", email:"meera@univ.edu"},
+ {facultyId: 209, name:"Prof. Sudeep", deptId:30, hireDate:ISODate("2017-07-01"),
+title:"Assistant Professor", email:"sudeep@univ.edu"},
+ {facultyId: 210, name:"Dr. Kavitha", deptId:40, hireDate:ISODate("2014-11-11"),
+title:"Professor", email:"kavitha@univ.edu"},
+ {facultyId: 211, name:"Prof. Ritesh", deptId:10, hireDate:ISODate("2023-01-10"),
+title:"Assistant Professor", email:"ritesh@univ.edu"}
+]);
+// Courses (10+)
+db.courses.insertMany([
+ {courseId: 301, name:"Data Structures", deptId:10, credits:4, level:"UG"},
+ {courseId: 302, name:"Algorithms", deptId:10, credits:4, level:"UG"},
+ {courseId: 303, name:"Database Systems", deptId:20, credits:3, level:"UG"},
+ {courseId: 304, name:"Operating Systems", deptId:10, credits:4, level:"UG"},
+ {courseId: 305, name:"Digital Signal Processing", deptId:30, credits:4, level:"UG"},
+ {courseId: 306, name:"Microprocessors", deptId:30, credits:3, level:"UG"},
+ {courseId: 307, name:"Thermodynamics", deptId:40, credits:3, level:"UG"},
+ {courseId: 308, name:"Fluid Mechanics", deptId:40, credits:4, level:"UG"},
+ {courseId: 309, name:"Machine Learning", deptId:50, credits:4, level:"UG"},
+ {courseId: 310, name:"Deep Learning", deptId:50, credits:4, level:"PG"},
+ {courseId: 311, name:"Information Retrieval", deptId:20, credits:3, level:"UG"}
+]);
+// Enrollments (20+)
+db.enrollments.insertMany([
+ {enrollId: 4001, studentId:1001, courseId:309, semester:"Odd 2024-25",
+enrolledOn:ISODate("2024-09-01"), grade:null},
+ {enrollId: 4002, studentId:1001, courseId:301, semester:"Odd 2024-25",
+enrolledOn:ISODate("2024-09-01"), grade:null},
+ {enrollId: 4003, studentId:1002, courseId:301, semester:"Odd 2023-24",
+enrolledOn:ISODate("2023-09-01"), grade:"A"},
+ {enrollId: 4004, studentId:1002, courseId:302, semester:"Even 2023-24",
+enrolledOn:ISODate("2024-02-01"), grade:"B"},
+ {enrollId: 4005, studentId:1003, courseId:303, semester:"Odd 2023-24",
+enrolledOn:ISODate("2023-09-01"), grade:"A"},
+ {enrollId: 4006, studentId:1003, courseId:311, semester:"Even 2023-24",
+enrolledOn:ISODate("2024-02-01"), grade:"A"},
+ {enrollId: 4007, studentId:1004, courseId:304, semester:"Odd 2022-23",
+enrolledOn:ISODate("2022-09-01"), grade:"B"},
+ {enrollId: 4008, studentId:1004, courseId:302, semester:"Even 2022-23",
+enrolledOn:ISODate("2023-02-01"), grade:"A"},
+ {enrollId: 4009, studentId:1005, courseId:305, semester:"Odd 2023-24",
+enrolledOn:ISODate("2023-09-01"), grade:"C"},
+ {enrollId: 4010, studentId:1005, courseId:306, semester:"Even 2023-24",
+enrolledOn:ISODate("2024-02-01"), grade:"B"},
+ {enrollId: 4011, studentId:1006, courseId:309, semester:"Odd 2024-25",
+enrolledOn:ISODate("2024-09-01"), grade:null},
+ {enrollId: 4012, studentId:1006, courseId:310, semester:"Odd 2024-25",
+enrolledOn:ISODate("2024-09-01"), grade:null},
+ {enrollId: 4013, studentId:1007, courseId:303, semester:"Odd 2023-24",
+enrolledOn:ISODate("2023-09-01"), grade:"B"},
+ {enrollId: 4014, studentId:1007, courseId:311, semester:"Even 2023-24",
+enrolledOn:ISODate("2024-02-01"), grade:"A"},
+ {enrollId: 4015, studentId:1008, courseId:305, semester:"Odd 2022-23",
+enrolledOn:ISODate("2022-09-01"), grade:"B"},
+ {enrollId: 4016, studentId:1008, courseId:308, semester:"Even 2022-23",
+enrolledOn:ISODate("2023-02-01"), grade:"B"},
+ {enrollId: 4017, studentId:1009, courseId:307, semester:"Odd 2022-23",
+enrolledOn:ISODate("2022-09-01"), grade:"A"},
+ {enrollId: 4018, studentId:1009, courseId:308, semester:"Even 2022-23",
+enrolledOn:ISODate("2023-02-01"), grade:"A"},
+ {enrollId: 4019, studentId:1010, courseId:302, semester:"Odd 2024-25",
+enrolledOn:ISODate("2024-09-01"), grade:null},
+ {enrollId: 4020, studentId:1010, courseId:304, semester:"Odd 2024-25",
+enrolledOn:ISODate("2024-09-01"), grade:null},
+ {enrollId: 4021, studentId:1011, courseId:309, semester:"Odd 2024-25",
+enrolledOn:ISODate("2024-09-01"), grade:null},
+ {enrollId: 4022, studentId:1011, courseId:310, semester:"Odd 2024-25",
+enrolledOn:ISODate("2024-09-01"), grade:null}
+]);
+d. i. db.students.aggregate([
+ {$lookup:{
+ from:"departments",
+ localField:"deptId",
+ foreignField:"deptId",
+ as:"dept"
+ }},
+ {$unwind:"$dept"},
+ {$project:{_id:0, studentId:1, name:1, dept:"$dept.name"}}
+]);
+ii. db.students.aggregate([
+ {$lookup:{
+ from:"enrollments",
+ localField:"studentId",
+ foreignField:"studentId",
+ as:"enrs"
+ }},
+ {$unwind:"$enrs"},
+ {$lookup:{
+ from:"courses",
+ localField:"enrs.courseId",
+ foreignField:"courseId",
+ as:"course"
+ }},
+ {$unwind:"$course"},
+ {$project:{
+ _id:0, studentId:1, name:1,
+ courseId:"$course.courseId",
+ courseName:"$course.name",
+ semester:"$enrs.semester", grade:"$enrs.grade"
+ }},
+ {$sort:{studentId:1, courseId:1}}
+]);
+iii. db.students.aggregate([
+ {$group:{_id:"$deptId", count:{$sum:1}}},
+ {$lookup:{
+ from:"departments",
+ localField:"_id",
+ foreignField:"deptId",
+ as:"dept"
+ }},
+ {$unwind:"$dept"},
+ {$project:{_id:0, deptId:"$dept.deptId", department:"$dept.name", students:"$count"}},
+ {$sort:{deptId:1}}
+]);
+iv. db.faculty.aggregate([
+ {$lookup:{
+ from:"departments",
+ localField:"deptId",
+ foreignField:"deptId",
+ as:"dept"
+ }},
+ {$unwind:"$dept"},
+ {$lookup:{
+ from:"courses",
+ let:{d:"$deptId"},
+ pipeline:[
+ {$match:{$expr:{$eq:["$deptId","$$d"]}}}
+ ],
+ as:"courses"
+ }},
+ {$project:{
+ _id:0,
+ facultyId:1, name:1, title:1,
+ department:"$dept.name",
+ courses:"$courses.name"
+ }},
+ {$sort:{department:1, name:1}}
+]);
+V. db.departments.aggregate([
+ {
+ $facet: {
+ students: [
+ {$lookup:{from:"students", localField:"deptId", foreignField:"deptId", as:"s"}},
+ {$project:{deptId:1, name:1, studentCount:{$size:"$s"}}}
+ ],
+ faculty: [
+ {$lookup:{from:"faculty", localField:"deptId", foreignField:"deptId", as:"f"}},
+ {$project:{deptId:1, name:1, facultyCount:{$size:"$f"}}}
+ ],
+ courses: [
+ {$lookup:{from:"courses", localField:"deptId", foreignField:"deptId", as:"c"}},
+ {$project:{deptId:1, name:1, courseCount:{$size:"$c"}}}
+ ]
+ }
+ },
+ // Stitch the three facets by deptId
+ {
+ $project: {
+ merged: {
+ $map: {
+ input: "$students",
+ as: "s",
+ in: {
+ deptId: "$$s.deptId",
+ department: "$$s.name",
+ studentCount: "$$s.studentCount",
+ facultyCount: {
+ $let: {
+ vars: { f: { $arrayElemAt: [
+ { $filter: { input: "$faculty", as:"ff", cond: {$eq:["$$ff.deptId","$$s.deptId"]} } }, 0 ] }
+},
+ in: "$$f.facultyCount"
+ }
+ },
+ courseCount: {
+ $let: {
+ vars: { c: { $arrayElemAt: [
+ { $filter: { input: "$courses", as:"cc", cond: {$eq:["$$cc.deptId","$$s.deptId"]} } }, 0
+] } },
+ in: "$$c.courseCount"
+ }
+ }
+ }
+ }
+ }
+ }
+ },
+ {$unwind:"$merged"},
+ {$replaceRoot:{newRoot:"$merged"}},
+ {$sort:{deptId:1}}
+]);
+Additional:
+db.students.createIndex({deptId:1, studentId:1});
+db.faculty.createIndex({deptId:1});
+db.courses.createIndex({deptId:1, courseId:1});
+db.enrollments.createIndex({studentId:1, courseId:1});
+db.departments.createIndex({deptId:1}, {unique:true});
